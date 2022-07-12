@@ -1,0 +1,78 @@
+﻿@page "/"
+@inject NavigationManager NavigationManager
+
+@implements IAsyncDisposable
+
+<PageTitle>SignalR Chat</PageTitle>
+<h3>Hello Sallal</h3>
+
+
+
+    
+
+           
+<div class="form-group">
+    <label>
+        User:
+        <input class="form-control border-end-0 border-start-0 border-top-0 rounded-pill" @bind="userInput" />
+    </label>
+</div>
+<div class="form-group">
+    <label>
+        Message:
+        <input class="form-control border-end-0 border-start-0 border-top-0 rounded-pill" @bind="messageInput" size="50" />
+    </label>
+</div>
+<button class="btn btn-danger rounded-pill mt-2" @onclick="Send" disabled="@(!IsConnected)">Send</button>
+
+<hr>
+
+<ul id="messagesList">
+    @foreach (var message in messages)
+    {
+        <li>@message </li>
+        
+    }
+</ul>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<string> messages = new List<string>();
+    private string? userInput;
+    private string? messageInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
+            .Build();
+
+        hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+        {
+            var encodedMsg = $"{user}: {message}";
+            messages.Add(encodedMsg);
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task Send()
+    {
+        if (hubConnection != null)
+            {
+                await hubConnection.SendAsync("SendMessage", userInput, messageInput);
+            }
+    }
+
+    public bool IsConnected =>
+        hubConnection?.State == HubConnectionState.Connected;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
